@@ -1,82 +1,99 @@
-#include <stdlib.h>
+// C program for the Client Side
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+
+// inet_addr
 #include <arpa/inet.h>
+#include <unistd.h>
 
-#define MAXLINE 4096 /*max text line length*/
-#define SERV_PORT 3000 /*port*/
+// For threading, link with lpthread
+#include <pthread.h>
+#include <semaphore.h>
 
-int main(int argc, char **argv)
+// Function to send data to
+// server socket.
+void* clienthread(void* args)
 {
- int sd;
- struct sockaddr_in servaddr;
- char sendline[MAXLINE], recvline[MAXLINE];
 
- //basic check of the arguments
- //additional checks can be inserted
- if (argc !=2) {
-  perror("Usage: TCPClient <IP address of the server");
-  exit(1);
- }
+    int client_request = *((int*)args);
+    int network_socket;
 
- //Create a socket for the client
- //If sd<0 there was an error in the creation of the socket
- if ((sd = socket (AF_INET, SOCK_STREAM, 0)) <0) {
-  perror("Problem in creating the socket");
-  exit(2);
- }
+    // Create a stream socket
+    network_socket = socket(AF_INET,
+                            SOCK_STREAM, 0);
 
- //Creation of the socket
- memset(&servaddr, 0, sizeof(servaddr));
- servaddr.sin_family = AF_INET;
- servaddr.sin_addr.s_addr= inet_addr(argv[1]);
- servaddr.sin_port =  htons(SERV_PORT); //convert to big-endian order
+    // Initialise port number and address
+    struct sockaddr_in server_address;
+    server_address.sin_family = AF_INET;
+    server_address.sin_addr.s_addr = INADDR_ANY;
+    server_address.sin_port = htons(8989);
 
- //Connection of the client to the socket
- if (connect(sd, (struct sockaddr *) &servaddr, sizeof(servaddr))<0) {
-  perror("Problem in connecting to the server");
-  exit(3);
- }
-else
-printf("\nconnected to server now.\n");
-/*file start*/
+    // Initiate a socket connection
+    int connection_status = connect(network_socket,
+                                    (struct sockaddr*)&server_address,
+                                    sizeof(server_address));
 
-    int n;
-    char buf_recv[1000];
-    char buf_send[1000];
-    char *filename;
-    char file_buffer[1000];
-    FILE *fp;
-    //code for receivind statement "Enter the file name"
-    n = recv(sd, buf_recv, sizeof(buf_recv), 0);
-    buf_recv[n]='\0';
-    printf("%s",buf_recv);
+    // Check for connection error
+    if (connection_status < 0) {
+        puts("Error\n");
+        return 0;
+    }
 
+    printf("Connection established\n");
 
-printf("\n\nNow sending the file name: \n\n");
-scanf("%s",buf_send);
-send(sd,buf_send,strlen(buf_send),0);
+    // Send data to the socket
+    send(network_socket, &client_request,
+        sizeof(client_request), 0);
 
+    // Close the connection
+    close(network_socket);
+    pthread_exit(NULL);
 
-printf("\n\n receiving the string \"File found or not\"\n\n");
-    n = recv(sd, buf_recv, sizeof(buf_recv), 0);
-    buf_recv[n]='\0';
-    printf("%s",buf_recv);
-    fflush(stdout);
+    return 0;
+}
 
+// Driver Code
+int main()
+{
+    printf("1. Read\n");
+    printf("2. Write\n");
 
-printf("\n\n Receiving the file content \n\n");
-n=recv(sd, file_buffer, sizeof(file_buffer), 0);
-file_buffer[n]='\0';
-fflush(stdout);
+    // Input
+    int choice;
+    scanf("%d", &choice);
+    pthread_t tid;
 
-fp = fopen("received_file.txt","w");
-fputs(file_buffer,fp);
-fclose(fp);
-close(sd);
+    // Create connection
+    // depending on the input
+    switch (choice) {
+    case 1: {
+        int client_request = 1;
 
-return 0;
+        // Create thread
+        pthread_create(&tid, NULL,
+                    clienthread,
+                    &client_request);
+        sleep(20);
+        break;
+    }
+    case 2: {
+        int client_request = 2;
+
+        // Create thread
+        pthread_create(&tid, NULL,
+                    clienthread,
+                    &client_request);
+        sleep(20);
+        break;
+    }
+    default:
+        printf("Invalid Input\n");
+        break;
+    }
+
+    // Suspend execution of
+    // calling thread
+    pthread_join(tid, NULL);
 }
