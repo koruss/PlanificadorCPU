@@ -21,8 +21,8 @@ void manual(char *fileRoute){
             p1.burst = atoi(strtok(line, s));
             token = strtok(NULL,s);
             p1.priority = atoi(token);
+            printf("Burst = %d\t, Priority = %d \n", p1.burst, p1.priority);
 
-            printf("x = %d\t, y = %d \n", p1.priority, p1.burst);
         }
         fclose(fp);
 
@@ -39,9 +39,7 @@ int main()
 {
     char fileName[]= "/home/koruss/Documents/Bretes/PlanificadorCPU/cliente/manual.txt";
     manual(fileName);
-
     return 0;
-
 }
 
 
