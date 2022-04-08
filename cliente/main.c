@@ -1,99 +1,62 @@
-// C program for the Client Side
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
-
-// inet_addr
-#include <arpa/inet.h>
+#include <netdb.h>
 #include <unistd.h>
+#include <string.h>
 
-// For threading, link with lpthread
-#include <pthread.h>
-#include <semaphore.h>
-
-// Function to send data to
-// server socket.
-void* clienthread(void* args)
+int main(int argc, char ** argv)
 {
+    int port;
+    int sock = -1;
+    struct sockaddr_in address;
+    struct hostent * host;
+    int len;
 
-    int client_request = *((int*)args);
-    int network_socket;
-
-    // Create a stream socket
-    network_socket = socket(AF_INET,
-                            SOCK_STREAM, 0);
-
-    // Initialise port number and address
-    struct sockaddr_in server_address;
-    server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = INADDR_ANY;
-    server_address.sin_port = htons(8989);
-
-    // Initiate a socket connection
-    int connection_status = connect(network_socket,
-                                    (struct sockaddr*)&server_address,
-                                    sizeof(server_address));
-
-    // Check for connection error
-    if (connection_status < 0) {
-        puts("Error\n");
-        return 0;
+    /* checking commandline parameter */
+    if (argc != 4)
+    {
+        printf("usage: %s hostname port text\n", argv[0]);
+        return -1;
     }
 
-    printf("Connection established\n");
+    /* obtain port number */
+    if (sscanf(argv[2], "%d", &port) <= 0)
+    {
+        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
+        return -2;
+    }
 
-    // Send data to the socket
-    send(network_socket, &client_request,
-        sizeof(client_request), 0);
+    /* create socket */
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock <= 0)
+    {
+        fprintf(stderr, "%s: error: cannot create socket\n", argv[0]);
+        return -3;
+    }
 
-    // Close the connection
-    close(network_socket);
-    pthread_exit(NULL);
+    /* connect to server */
+    address.sin_family = AF_INET;
+    address.sin_port = htons(port);
+    host = gethostbyname(argv[1]);
+    if (!host)
+    {
+        fprintf(stderr, "%s: error: unknown host %s\n", argv[0], argv[1]);
+        return -4;
+    }
+    memcpy(&address.sin_addr, host->h_addr_list[0], host->h_length);
+    if (connect(sock, (struct sockaddr *)&address, sizeof(address)))
+    {
+        fprintf(stderr, "%s: error: cannot connect to host %s\n", argv[0], argv[1]);
+        return -5;
+    }
+
+    /* send text to server */
+    len = strlen(argv[3]);
+    write(sock, &len, sizeof(int));
+    write(sock, argv[3], len);
+
+    /* close socket */
+    close(sock);
 
     return 0;
-}
-
-// Driver Code
-int main()
-{
-    printf("1. Read\n");
-    printf("2. Write\n");
-
-    // Input
-    int choice;
-    scanf("%d", &choice);
-    pthread_t tid;
-
-    // Create connection
-    // depending on the input
-    switch (choice) {
-    case 1: {
-        int client_request = 1;
-
-        // Create thread
-        pthread_create(&tid, NULL,
-                    clienthread,
-                    &client_request);
-        sleep(20);
-        break;
-    }
-    case 2: {
-        int client_request = 2;
-
-        // Create thread
-        pthread_create(&tid, NULL,
-                    clienthread,
-                    &client_request);
-        sleep(20);
-        break;
-    }
-    default:
-        printf("Invalid Input\n");
-        break;
-    }
-
-    // Suspend execution of
-    // calling thread
-    pthread_join(tid, NULL);
 }
