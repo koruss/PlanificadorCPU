@@ -1,7 +1,11 @@
 #include <stdio.h>
-#include "pcb.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include "jobsched.h"
 
-void startJobScheduler(char* arg){
+void* startCpuScheduler(void* void_arg){
+    char* arg = void_arg;
     if (strcmp(arg, "fifo") == 0)
     {
             printf("fifo inserted\n");
@@ -18,16 +22,21 @@ void startJobScheduler(char* arg){
     {
             printf("round robin inserted\n");
     }
-    else /* default: */
+    else
     {
         printf("invalid expression inserted\n");
     }
+    return NULL;
 }
 
 int main(int argc, char** argv)
 {
+    pthread_t tid0;
+    const char* arg1 = argv[1];
 
-    startJobScheduler(argv[1]);
+    // Create the thread for the CPU Scheduler.
+    pthread_create(&tid0, NULL, startCpuScheduler, (void *) arg1);
 
+    pthread_exit(NULL);
     return 0;
 }
