@@ -8,8 +8,7 @@
 
 typedef struct
 {
-    int sock;
-    int len;
+    int i;
 } connection_t;
 
 
@@ -18,90 +17,81 @@ void * processClient(void * ptr)
 {
     connection_t * conn;
     conn = (connection_t *)ptr;
+
+    int port;
+    int sock = -1;
+    struct sockaddr_in address;
+    struct hostent * host;
     int len;
 
+//    /* checking commandline parameter */
+//    if (argc != 4)
+//    {
+//        printf("usage: %s hostname port text\n", argv[0]);
+//    }
 
-    len = strlen("'argv[3]'");
-    write(conn->sock, &len, sizeof(int));
-    write(conn->sock, "'argv[3]'", len);
+//    /* obtain port number */
+//    if (sscanf(argv[2], "%d", &port) <= 0)
+//    {
+//        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
+//    }
+
+    /* create socket */
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+//    if (sock <= 0)
+//    {
+//        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
+//    }
+
+    /* connect to server */
+    address.sin_family = AF_INET;
+    address.sin_port = htons(8980);
+    host = gethostbyname("localhost");
+
+//    if (!host)
+//    {
+//        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
+//    }
+    memcpy(&address.sin_addr, host->h_addr_list[0], host->h_length);
+//    if (connect(sock, (struct sockaddr *)&address, sizeof(address)))
+//    {
+//        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
+//    }
+
+    /* send text to server */
+    len = strlen("argv[3]");
+    printf("%d\n", conn->i);
+    write(sock, &len, sizeof(int));
+    write(sock, "argv[3]", len);
+
+    /* close socket */
+    close(sock);
+
+    return 0;
 }
 
 void r(int i){
     printf("%d\n", i);
 }
 
-int main(int argc, char ** argv)
+int main()
 {
-    int port;
-    int sock = -1;
-    struct sockaddr_in address;
-    struct hostent * host;
     connection_t * connection;
-    int len;
+    pthread_t thread;
 
 
-    /* checking commandline parameter */
-    if (argc != 4)
-    {
-        printf("usage: %s hostname port text\n", argv[0]);
-        return -1;
-    }
-
-    /* obtain port number */
-    if (sscanf(argv[2], "%d", &port) <= 0)
-    {
-        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
-        return -2;
-    }
-
-    /* create socket */
-    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock <= 0)
-    {
-        fprintf(stderr, "%s: error: cannot create socket\n", argv[0]);
-        return -3;
-    }
-
-    /* connect to server */
-    address.sin_family = AF_INET;
-    address.sin_port = htons(8980);
-    host = gethostbyname(argv[1]);
-    if (!host)
-    {
-        fprintf(stderr, "%s: error: unknown host %s\n", argv[0], argv[1]);
-        return -4;
-    }
-    memcpy(&address.sin_addr, host->h_addr_list[0], host->h_length);
-    if (connect(sock, (struct sockaddr *)&address, sizeof(address)))
-    {
-        fprintf(stderr, "%s: error: cannot connect to host %s\n", argv[0], argv[1]);
-        return -5;
-    }
-    int i = 1;
-
-    len = strlen("'argv[3]'");
-
+    connection = (connection_t *)malloc(sizeof(connection_t));
+//    connection->argv = argv;
+    int i=0;
+    connection->i = i;
     while(1){
-        pthread_t thread;
-        r(i);
-        /* send text to server */
-//        write(sock, &len, sizeof(int));
-//        write(sock, "'argv[3]'", len);
-        /* accept incoming connections */
-        connection = (connection_t *)malloc(sizeof(connection_t));
-        connection->sock = sock;
-        connection->len = len;
-
-        /* start a new thread but do not wait for it */
         pthread_create(&thread, 0, processClient, (void *)connection);
         pthread_detach(thread);
 
-        ++i;
         sleep(1);
+        ++i;
     }
-
-    /* close socket */
-    close(sock);
+    pthread_exit(0);
 
     return 0;
 }
