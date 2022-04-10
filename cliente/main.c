@@ -3,6 +3,32 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+typedef struct
+{
+    int sock;
+    int len;
+} connection_t;
+
+
+
+void * processClient(void * ptr)
+{
+    connection_t * conn;
+    conn = (connection_t *)ptr;
+    int len;
+
+
+    len = strlen("'argv[3]'");
+    write(conn->sock, &len, sizeof(int));
+    write(conn->sock, "'argv[3]'", len);
+}
+
+void r(int i){
+    printf("%d\n", i);
+}
 
 int main(int argc, char ** argv)
 {
@@ -10,7 +36,9 @@ int main(int argc, char ** argv)
     int sock = -1;
     struct sockaddr_in address;
     struct hostent * host;
+    connection_t * connection;
     int len;
+
 
     /* checking commandline parameter */
     if (argc != 4)
@@ -36,7 +64,7 @@ int main(int argc, char ** argv)
 
     /* connect to server */
     address.sin_family = AF_INET;
-    address.sin_port = htons(port);
+    address.sin_port = htons(8980);
     host = gethostbyname(argv[1]);
     if (!host)
     {
@@ -49,11 +77,28 @@ int main(int argc, char ** argv)
         fprintf(stderr, "%s: error: cannot connect to host %s\n", argv[0], argv[1]);
         return -5;
     }
+    int i = 1;
 
-    /* send text to server */
-    len = strlen(argv[3]);
-    write(sock, &len, sizeof(int));
-    write(sock, argv[3], len);
+    len = strlen("'argv[3]'");
+
+    while(1){
+        pthread_t thread;
+        r(i);
+        /* send text to server */
+//        write(sock, &len, sizeof(int));
+//        write(sock, "'argv[3]'", len);
+        /* accept incoming connections */
+        connection = (connection_t *)malloc(sizeof(connection_t));
+        connection->sock = sock;
+        connection->len = len;
+
+        /* start a new thread but do not wait for it */
+        pthread_create(&thread, 0, processClient, (void *)connection);
+        pthread_detach(thread);
+
+        ++i;
+        sleep(1);
+    }
 
     /* close socket */
     close(sock);
