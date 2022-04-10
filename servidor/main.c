@@ -1,161 +1,120 @@
-// C program for the Server Side
-
-// inet_addr
-#include <arpa/inet.h>
-
-// For threading, link with lpthread
-#include <pthread.h>
-#include <semaphore.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <pthread.h>
 #include <sys/socket.h>
+#include <linux/in.h>
 #include <unistd.h>
+#include <string.h>
 
-// Semaphore variables
-sem_t x, y;
-pthread_t tid;
-pthread_t writerthreads[100];
-pthread_t readerthreads[100];
-int readercount = 0;
-
-// Reader Function
-void* reader(void* param)
+typedef struct
 {
-    // Lock the semaphore
-    sem_wait(&x);
-    readercount++;
+    int sock;
+    struct sockaddr address;
+    int addr_len;
+} connection_t;
 
-    if (readercount == 1)
-        sem_wait(&y);
+void * process(void * ptr)
+{
+    char * buffer;
+    int len;
+    connection_t * conn;
+    long addr = 0;
 
-    // Unlock the semaphore
-    sem_post(&x);
+    if (!ptr) pthread_exit(0);
+    conn = (connection_t *)ptr;
 
-    printf("\n%d reader is inside",
-        readercount);
+    /* read length of message */
+    read(conn->sock, &len, sizeof(int));
+    if (len > 0)
+    {
+        addr = (long)((struct sockaddr_in *)&conn->address)->sin_addr.s_addr;
+        buffer = (char *)malloc((len+1)*sizeof(char));
+        buffer[len] = 0;
 
-    sleep(5);
+        /* read message */
+        read(conn->sock, buffer, len);
 
-    // Lock the semaphore
-    sem_wait(&x);
-    readercount--;
-
-    if (readercount == 0) {
-        sem_post(&y);
+        /* print message */
+        printf("%d.%d.%d.%d: %s\n",
+            (int)((addr      ) & 0xff),
+            (int)((addr >>  8) & 0xff),
+            (int)((addr >> 16) & 0xff),
+            (int)((addr >> 24) & 0xff),
+            buffer);
+        free(buffer);
     }
 
-    // Lock the semaphore
-    sem_post(&x);
 
-    printf("\n%d Reader is leaving",
-        readercount + 1);
-    pthread_exit(NULL);
+    /* close socket and clean up */
+    close(conn->sock);
+    free(conn);
+    pthread_exit(0);
 }
 
-// Writer Function
-void* writer(void* param)
+int main(int argc, char ** argv)
 {
-    printf("\nWriter is trying to enter");
+    int sock = -1;
+    struct sockaddr_in address;
+    int port;
+    connection_t * connection;
+    pthread_t thread;
 
-    // Lock the semaphore
-    sem_wait(&y);
-
-    printf("\nWriter has entered");
-
-    // Unlock the semaphore
-    sem_post(&y);
-
-    printf("\nWriter is leaving");
-    pthread_exit(NULL);
-}
-
-// Driver Code
-int main()
-{
-    // Initialize variables
-    int serverSocket, newSocket;
-    struct sockaddr_in serverAddr;
-    struct sockaddr_storage serverStorage;
-
-    socklen_t addr_size;
-    sem_init(&x, 0, 1);
-    sem_init(&y, 0, 1);
-
-    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(8989);
-
-    // Bind the socket to the
-    // address and port number.
-    bind(serverSocket,
-        (struct sockaddr*)&serverAddr,
-        sizeof(serverAddr));
-
-    // Listen on the socket,
-    // with 40 max connection
-    // requests queued
-    if (listen(serverSocket, 50) == 0){
-        printf("Listensssssing\n");
+    /* check for command line arguments */
+    if (argc != 2)
+    {
+        fprintf(stderr, "usage: %s port\n", argv[0]);
+        return -1;
     }
-    else
-        printf("Error\n");
 
+    /* obtain port number */
+    if (sscanf(argv[1], "%d", &port) <= 0)
+    {
+        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
+        return -2;
+    }
 
-    // Array for thread
-    pthread_t tid[60];
+    /* create socket */
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock <= 0)
+    {
+        fprintf(stderr, "%s: error: cannot create socket\n", argv[0]);
+        return -3;
+    }
 
-    int i = 0;
+    /* bind socket to port */
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(8980);
+    if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in)) < 0)
+    {
+        fprintf(stderr, "%s: error: cannot bind socket to port %d\n", argv[0], port);
+        return -4;
+    }
 
-    while (1) {
-        addr_size = sizeof(serverStorage);
+    /* listen on port */
+    if (listen(sock, 5) < 0)
+    {
+        fprintf(stderr, "%s: error: cannot listen on port\n", argv[0]);
+        return -5;
+    }
 
-        // Extract the first
-        // connection in the queue
-        newSocket = accept(serverSocket,
-                        (struct sockaddr*)&serverStorage,
-                        &addr_size);
-        int choice = 0;
-        recv(newSocket,
-            &choice, sizeof(choice), 0);
+    printf("%s: ready and listening\n", argv[0]);
 
-        if (choice == 1) {
-            // Creater readers thread
-            if (pthread_create(&readerthreads[i++], NULL,
-                            reader, &newSocket)
-                != 0)
-
-                // Error in creating thread
-                printf("Failed to create thread\n");
+    while (1)
+    {
+        /* accept incoming connections */
+        connection = (connection_t *)malloc(sizeof(connection_t));
+        connection->sock = accept(sock, &connection->address, &connection->addr_len);
+        if (connection->sock <= 0)
+        {
+            free(connection);
         }
-        else if (choice == 2) {
-            // Create writers thread
-            if (pthread_create(&writerthreads[i++], NULL,
-                            writer, &newSocket)
-                != 0)
-
-                // Error in creating thread
-                printf("Failed to create thread\n");
-        }
-
-        if (i >= 50) {
-            // Update i
-            i = 0;
-
-            while (i < 50) {
-                // Suspend execution of
-                // the calling thread
-                // until the target
-                // thread terminates
-                pthread_join(writerthreads[i++],
-                            NULL);
-                pthread_join(readerthreads[i++],
-                            NULL);
-            }
-
-            // Update i
-            i = 0;
+        else
+        {
+            /* start a new thread but do not wait for it */
+            pthread_create(&thread, 0, process, (void *)connection);
+            pthread_detach(thread);
         }
     }
 
