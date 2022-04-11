@@ -30,44 +30,32 @@ int MODE=1;//the client mode 1 equals to MANUAL mode 2 equals to AUTO mode
 
 
 
-int processClient(char * param)
+void * processClient(void * param)
 {
     connection_t * conn;
 
     int port;
     int sock = -1;
     struct sockaddr_in address;
-    struct hostent * host;
+    char *host_name = "localhost";
+    struct hostent * host = gethostbyname(host_name);
     int len;
 
-    /* checking commandline parameter */
-    if (conn->argc != 4)
-    {
-        printf("usage: %s hostname port text\n", conn->argv[0]);
-    }
 
-    /* obtain port number */
-    if (sscanf(conn->argv[2], "%d", &port) <= 0)
-    {
-        fprintf(stderr, "%s: error: wrong parameter: port\n", conn->argv[0]);
-    }
 
     /* create socket */
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock <= 0)
-    {
-        fprintf(stderr, "%s: error: cannot create socket\n", conn->argv[0]);
-    }
 
     /* connect to server */
     address.sin_family = AF_INET;
     address.sin_port = htons(8980);
-    host = gethostbyname(conn->argv[1]);
     if (!host)
     {
         fprintf(stderr, "%s: error: unknown host %s\n", conn->argv[0], conn->argv[1]);
 
     }
+
+
     memcpy(&address.sin_addr, host->h_addr_list[0], host->h_length);
     if (connect(sock, (struct sockaddr *)&address, sizeof(address)))
     {
@@ -76,9 +64,9 @@ int processClient(char * param)
     }
 
     /* send text to server */
-    len = strlen(conn->argv[3]);
-    write(sock, &len, sizeof(int));
-    write(sock, conn->argv[3], len);
+//    len = strlen("conn->argv[3]");
+//    write(sock, &len, sizeof(int));
+//    write(sock, "conn->argv[3]", len);
     len = strlen(param);
     write(sock, &len, sizeof(int));
     write(sock, param, len);
@@ -92,7 +80,7 @@ int processClient(char * param)
 void* sendToServer(void *arg){
     sleep(2);
     printf("%s\n", (char *)arg);
-    processClient((char *)arg);
+    processClient(arg);
     return NULL;
 }
 
