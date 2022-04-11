@@ -3,18 +3,28 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/queue.h>
 
 
 
+typedef struct _Node {
+    LIST_ENTRY(_Node) pointers;
+    pthread_t thread;
+}_Node;
 
-pthread_t *threadList;
+_Node *createNode(pthread_t thread){
+    _Node *nodito = (_Node *)malloc(sizeof(_Node));
+    nodito->thread=thread;
+
+}
+pthread_t *threadListManual;
+LIST_HEAD(Node_list, _Node) threadListAuto;
 int MODE=1;//the client mode 1 equals to MANUAL mode 2 equals to AUTO mode
 
 void* sendToServer(void *arg){
     sleep(2);
     printf("%s\n", (char *)arg);
     return NULL;
-
 }
 
 //void* manual(void * arg){
@@ -57,9 +67,9 @@ void* sendToServer(void *arg){
 
 void manual(char **lista, int threadsAmount){
     if( lista != NULL){
-        threadList=(pthread_t *)malloc(threadsAmount * sizeof(pthread_t ));
+        threadListManual=(pthread_t *)malloc(threadsAmount * sizeof(pthread_t ));
         for (int i=0; i< sizeof(lista);i++){
-            pthread_create(&threadList[i],NULL, sendToServer,lista[i]);
+            pthread_create(&threadListManual[i],NULL, sendToServer,lista[i]);
 
             int value = (rand()%6) + 3;
             sleep(value); //a number between 3 to 8
@@ -120,20 +130,63 @@ int countLines(char *fileName){
 
 
 
+void autoMode(int min, int max,int ratio){
+    while(1){
+        int priority = (rand()%5) + 1;//calculates the priority between (1- 5)
+        char priorityStr[sizeof(priority)];
+        sprintf(priorityStr, "%d", priority);// converts the priority to a string
+
+//        printf("%s", "priority: ");
+//        printf("%s", priorityStr);
+
+        int burst = ( rand() % (max-min+1) )+ min;//calculates the burst based on min and max given
+        char burstStr[sizeof(burst)];
+        sprintf(burstStr , "%d" , burst);
+//        printf("%s\n","burst ");
+//        printf("%s\n", burstStr);
+        const char s[2] = ",";
+
+        char line[20]="";
+        strcat(line , burstStr);
+        strcat(line,s);
+        strcat(line,priorityStr);
+
+
+        pthread_t thread;
+        _Node *node = createNode(thread);
+        pthread_create(&node->thread,NULL, sendToServer,line);
+
+        LIST_INSERT_HEAD(&threadListAuto, node, pointers);
+
+        sleep(ratio);
+    }
+}
+
 
 int main(){
-    printf("SELECT THE MODE (TYPE THE NUMBER: \n\t1.MANUAL\n\t2.AUTOMATIC\n");
+    printf("SELECT THE MODE (TYPE THE NUMBER): \n\t1.MANUAL\n\t2.AUTOMATIC\n");
     scanf("%d",&MODE);
     if(MODE == 1){
         char fileName[]= "/home/koruss/Documents/Bretes/PlanificadorCPU/cliente/manual.txt";
         int count = countLines(fileName);
         char **list =  readFile(fileName, count);
-
         manual(list, count);
     }
     if(MODE == 2){
-        //AUTO MODE GOES HERE
+        int min =0;
+        int max=0;
+        int ratio=0;
+        printf("\nIngrese el valor minimo del BURST \n");
+        scanf("%d",&min);
+        printf("\nIngrese el valor maximo del BURST \n");
+        scanf("%d",&max);
+        printf("\nIngrese la tasa de creacion de procesos \n");
+        scanf("%d",&ratio);
+        autoMode(min, max,ratio);
     }
+
+
+
     else{
         //retry
         printf("SELECT A VALID MODE");
