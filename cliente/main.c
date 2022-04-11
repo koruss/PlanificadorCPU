@@ -45,13 +45,10 @@ void * processClient(void * param)
 
     /* create socket */
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    printf("%s\n", "(char *)");
 
     /* connect to server */
     address.sin_family = AF_INET;
     address.sin_port = htons(8980);
-    printf("%s\n", "(char *)arg");
-//    host = gethostbyname(host_name);
     if (!host)
     {
         fprintf(stderr, "%s: error: unknown host %s\n", conn->argv[0], conn->argv[1]);
