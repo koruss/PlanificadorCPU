@@ -85,7 +85,7 @@ int main(int argc, char ** argv)
     /* bind socket to port */
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(8089);
+    address.sin_port = htons(8980);
     if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in)) < 0)
     {
         fprintf(stderr, "%s: error: cannot bind socket to port %d\n", argv[0], port);
