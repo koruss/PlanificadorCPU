@@ -1,7 +1,7 @@
 # This file is used to ignore files which are generated
 # ----------------------------------------------------------------------------
 *.qbs
-*.qbs.user
+*.qbs.user*
 *.pdf
 
 build-*
