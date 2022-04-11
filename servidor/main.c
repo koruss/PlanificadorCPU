@@ -7,6 +7,9 @@
 #include <unistd.h>
 #include <string.h>
 
+
+int PORT = 8089;
+
 typedef struct
 {
     int sock;
@@ -60,46 +63,32 @@ int main(int argc, char ** argv)
     connection_t * connection;
     pthread_t thread;
 
-    /* check for command line arguments */
-    if (argc != 2)
-    {
-        fprintf(stderr, "usage: %s port\n", argv[0]);
-        return -1;
-    }
-
-    /* obtain port number */
-    if (sscanf(argv[1], "%d", &port) <= 0)
-    {
-        fprintf(stderr, "%s: error: wrong parameter: port\n", argv[0]);
-        return -2;
-    }
-
     /* create socket */
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock <= 0)
     {
-        fprintf(stderr, "%s: error: cannot create socket\n", argv[0]);
+        fprintf(stderr, "%s: error: cannot create socket\n", "Server");
         return -3;
     }
 
     /* bind socket to port */
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(8980);
+    address.sin_port = htons(PORT);
     if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in)) < 0)
     {
-        fprintf(stderr, "%s: error: cannot bind socket to port %d\n", argv[0], port);
+        fprintf(stderr, "%s: error: cannot bind socket to port %d\n", "Server", PORT);
         return -4;
     }
 
     /* listen on port */
     if (listen(sock, 5) < 0)
     {
-        fprintf(stderr, "%s: error: cannot listen on port\n", argv[0]);
+        fprintf(stderr, "%s: error: cannot listen on port\n", "Server");
         return -5;
     }
 
-    printf("%s: ready and listening\n", argv[0]);
+    printf("%s: ready and listening\n", "Server");
 
     while (1)
     {
