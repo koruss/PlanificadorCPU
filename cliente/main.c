@@ -7,6 +7,11 @@
 #include <pthread.h>
 #include <sys/queue.h>
 
+typedef struct connection_t
+{
+    int i, argc;
+    char **argv;
+} connection_t;
 
 
 typedef struct _Node {
@@ -23,11 +28,74 @@ pthread_t *threadListManual;
 LIST_HEAD(Node_list, _Node) threadListAuto;
 int MODE=1;//the client mode 1 equals to MANUAL mode 2 equals to AUTO mode
 
+
+
+int processClient(char * param)
+{
+    connection_t * conn;
+
+    int port;
+    int sock = -1;
+    struct sockaddr_in address;
+    struct hostent * host;
+    int len;
+
+    /* checking commandline parameter */
+    if (conn->argc != 4)
+    {
+        printf("usage: %s hostname port text\n", conn->argv[0]);
+    }
+
+    /* obtain port number */
+    if (sscanf(conn->argv[2], "%d", &port) <= 0)
+    {
+        fprintf(stderr, "%s: error: wrong parameter: port\n", conn->argv[0]);
+    }
+
+    /* create socket */
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock <= 0)
+    {
+        fprintf(stderr, "%s: error: cannot create socket\n", conn->argv[0]);
+    }
+
+    /* connect to server */
+    address.sin_family = AF_INET;
+    address.sin_port = htons(8980);
+    host = gethostbyname(conn->argv[1]);
+    if (!host)
+    {
+        fprintf(stderr, "%s: error: unknown host %s\n", conn->argv[0], conn->argv[1]);
+
+    }
+    memcpy(&address.sin_addr, host->h_addr_list[0], host->h_length);
+    if (connect(sock, (struct sockaddr *)&address, sizeof(address)))
+    {
+        fprintf(stderr, "%s: error: cannot connect to host %s\n", conn->argv[0], conn->argv[1]);
+
+    }
+
+    /* send text to server */
+    len = strlen(conn->argv[3]);
+    write(sock, &len, sizeof(int));
+    write(sock, conn->argv[3], len);
+    len = strlen(param);
+    write(sock, &len, sizeof(int));
+    write(sock, param, len);
+
+    /* close socket */
+    close(sock);
+
+
+}
+
 void* sendToServer(void *arg){
     sleep(2);
     printf("%s\n", (char *)arg);
+    processClient((char *)arg);
     return NULL;
 }
+
 
 //void* manual(void * arg){
 //    char fileName[]= "/home/koruss/Documents/Bretes/PlanificadorCPU/cliente/manual.txt";
@@ -104,7 +172,7 @@ char **readFile(char *fileName,int length){
     }
     else{
         printf("%s", "An Error Ocurred Reading the file" );
-        return -1;
+        return NULL;
     }
 }
 
@@ -165,11 +233,22 @@ void autoMode(int min, int max,int ratio){
 }
 
 
-int main(){
+int main(int argc, char **argv)
+{
+    connection_t * connection;
+    pthread_t thread;
+
+
+    connection = (connection_t *)malloc(sizeof(connection_t));
+    int i=0;
+    connection->i = i;
+    connection->argv = argv;
+    connection->argc = argc;
+
     printf("SELECT THE MODE (TYPE THE NUMBER): \n\t1.MANUAL\n\t2.AUTOMATIC\n");
     scanf("%d",&MODE);
     if(MODE == 1){
-        char fileName[]= "/home/koruss/Documents/Bretes/PlanificadorCPU/cliente/manual.txt";
+        char fileName[]= "/home/anner/U/SO/PlanificadorCPU/cliente/manual.txt";
         int count = countLines(fileName);
         char **list =  readFile(fileName, count);
         manual(list, count);
@@ -194,95 +273,7 @@ int main(){
         printf("SELECT A VALID MODE");
     }
     pthread_exit(0);
-typedef struct
-{
-    int i, argc;
-    char **argv;
-} connection_t;
 
-
-
-void * processClient(void * ptr)
-{
-    connection_t * conn;
-    conn = (connection_t *)ptr;
-
-    int port;
-    int sock = -1;
-    struct sockaddr_in address;
-    struct hostent * host;
-    int len;
-
-    /* checking commandline parameter */
-    if (conn->argc != 4)
-    {
-        printf("usage: %s hostname port text\n", conn->argv[0]);
-    }
-
-    /* obtain port number */
-    if (sscanf(conn->argv[2], "%d", &port) <= 0)
-    {
-        fprintf(stderr, "%s: error: wrong parameter: port\n", conn->argv[0]);
-    }
-
-    /* create socket */
-    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock <= 0)
-    {
-        fprintf(stderr, "%s: error: cannot create socket\n", conn->argv[0]);
-    }
-
-    /* connect to server */
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port);
-    host = gethostbyname(conn->argv[1]);
-    if (!host)
-    {
-        fprintf(stderr, "%s: error: unknown host %s\n", conn->argv[0], conn->argv[1]);
-
-    }
-    memcpy(&address.sin_addr, host->h_addr_list[0], host->h_length);
-    if (connect(sock, (struct sockaddr *)&address, sizeof(address)))
-    {
-        fprintf(stderr, "%s: error: cannot connect to host %s\n", conn->argv[0], conn->argv[1]);
-
-    }
-
-    /* send text to server */
-    printf("%d\n", conn->i);
-    len = strlen(conn->argv[3]);
-    write(sock, &len, sizeof(int));
-    write(sock, conn->argv[3], len);
-
-    /* close socket */
-    close(sock);
-
-
-}
-
-void r(int i){
-    printf("%d\n", i);
-}
-
-int main(int argc, char **argv)
-{
-    connection_t * connection;
-    pthread_t thread;
-
-
-    connection = (connection_t *)malloc(sizeof(connection_t));
-    int i=0;
-    connection->i = i;
-    connection->argv = argv;
-    connection->argc = argc;
-    while(1){
-        pthread_create(&thread, 0, processClient, (void *)connection);
-        pthread_detach(thread);
-
-        sleep(5);
-        ++i;
-    }
-    pthread_exit(0);
 
     return 0;
 }
