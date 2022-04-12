@@ -26,7 +26,7 @@ void add_pcb(PCB *pcb_input){
 }
 
 void print_context_switch(PCB *pcb){
-    printf("CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing.\n", pcb->pid, pcb->burst, pcb->prio);
+    printf("CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing. rr=%d \n", pcb->pid, pcb->burst, pcb->prio, pcb->rr);
     fflush(stdout);
 }
 
@@ -93,10 +93,10 @@ void * process(void * ptr)
         char *token =strtok(NULL,s);
         int priority = atoi(token);
         printf("JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);        
-        pcbcito =create_pcb(++PID, priority, burst);
         char response[20];
         sprintf(response, "%d", pcbcito->pid);
         send(conn->sock, response, strlen(response), 0);
+        pcbcito =create_pcb(++PID, priority, burst, burst);
         add_pcb(pcbcito);
         fflush(stdout);
         free(buffer);
@@ -232,6 +232,77 @@ void start_hpf(){
     }
 }
 
+
+PCB *get_next_rr(int q){
+    PCB *pcb = NULL, *rr_pcb= NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state=='r'){
+            if(pcb->rr <= q){ // New elemnt is lower than quantum
+                rr_pcb = pcb;
+                return rr_pcb;
+            }else if(pcb->rr > q){ // New elemnt is higher than quantum
+                pcb->rr = pcb->rr-q;
+            }
+        }
+    }
+    
+}
+
+void start_rr(int q){
+    int cont=0;
+    PCB *rr = NULL;
+    while(CPU_ACTIVE){
+        rr = get_next_rr(q);
+        if(rr==NULL){
+            printf("Queue empty, waiting for new processes.\n");
+            sleep(1);
+        }
+        else{
+            // Set the state of the PCB as running.
+            rr->state = 'R';
+            print_context_switch(rr);
+            sleep(rr->rr);
+            // Set the state of the PCB as terminated.
+            rr->state = 't';
+        }
+    }
+}
+
+PCB *get_next_sjf(){
+    PCB *pcb = NULL, *sjf_pcb= NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state=='r'){
+            if (sjf_pcb == NULL) // First execution
+                sjf_pcb = pcb;
+            else if(pcb->burst < sjf_pcb->burst) // New elemnt has higher priority
+                sjf_pcb = pcb;
+            else if (pcb->burst == sjf_pcb->burst) // Tie-breaker in case of equal prio.
+                if(sjf_pcb->pid < pcb->pid)
+                    sjf_pcb = pcb;  
+        }
+    }
+    return sjf_pcb;
+}
+
+void start_sjf(){
+    PCB *minBurst = NULL;
+    while(CPU_ACTIVE){
+        minBurst = get_next_sjf();
+        if(minBurst==NULL){
+            // printf("Queue empty, waiting for new processes.\n");
+            sleep(1);
+        }
+        else{
+            // Set the state of the PCB as running.
+            minBurst->state = 'R';
+            print_context_switch(minBurst);
+            sleep(minBurst->burst);
+            // Set the state of the PCB as terminated.
+            minBurst->state = 't';
+        }
+    }
+}
+
 void* start_cpu_scheduler(void* void_arg){
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     char* arg = void_arg;
@@ -244,7 +315,8 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "sjf") == 0)
     {
-        printf("sjf inserted\n");
+        printf("Starting CPU scheduler with SJF\n");
+        start_sjf();
     }
     else if (strcmp(arg, "hpf") == 0)
     {
@@ -253,7 +325,11 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "roundrobin") == 0)
     {
-        printf("round robin inserted\n");
+        int q;
+        printf( "Enter a time quantum:");
+        scanf("%d", &q);
+        printf("Starting CPU scheduler with ROUND ROBIN\n");
+        start_rr(q);
     }
     else
     {

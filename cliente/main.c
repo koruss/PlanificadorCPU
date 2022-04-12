@@ -169,7 +169,7 @@ int main(int argc, char **argv)
     printf("SELECT THE MODE (TYPE THE NUMBER): \n\t1.MANUAL\n\t2.AUTOMATIC\n");
     scanf("%d",&MODE);
     if(MODE == 1){
-        char fileName[]= "PlanificadorCPU/cliente/manual.txt";
+        char fileName[]= "./manual.txt";
         int count = countLines(fileName);
         char **list =  readFile(fileName, count);
         manual(list, count);
