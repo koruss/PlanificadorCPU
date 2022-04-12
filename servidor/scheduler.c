@@ -71,7 +71,12 @@ void print_tat_wt_table(){
 }
 
 void print_context_switch(PCB *pcb){
-    printf("CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing. rr=%d \n", pcb->pid, pcb->burst, pcb->prio, pcb->rr);
+    printf("\n CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing.\n", pcb->pid, pcb->burst, pcb->prio);
+    fflush(stdout);
+}
+
+void print_context_switch_rr(PCB *pcb){
+    printf("\n CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing. rr=%d \n", pcb->pid, pcb->burst, pcb->prio, pcb->rr);
     fflush(stdout);
 }
 
@@ -137,11 +142,11 @@ void * process(void * ptr)
         int burst = atoi(strtok(buffer, s));
         char *token =strtok(NULL,s);
         int priority = atoi(token);
-        printf("JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);        
+        printf("\n JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);
+        pcbcito =create_pcb(++PID, priority, burst, burst);
         char response[20];
         sprintf(response, "%d", pcbcito->pid);
         send(conn->sock, response, strlen(response), 0);
-        pcbcito =create_pcb(++PID, priority, burst, burst);
         add_pcb(pcbcito);
         fflush(stdout);
         free(buffer);
@@ -297,7 +302,7 @@ PCB *get_next_rr(int q){
 void start_rr(int q){
     int cont=0;
     PCB *rr = NULL;
-    while(CPU_ACTIVE){
+    while(1){
         rr = get_next_rr(q);
         if(rr==NULL){
             printf("Queue empty, waiting for new processes.\n");
@@ -306,7 +311,7 @@ void start_rr(int q){
         else{
             // Set the state of the PCB as running.
             rr->state = 'R';
-            print_context_switch(rr);
+            print_context_switch_rr(rr);
             sleep(rr->rr);
             // Set the state of the PCB as terminated.
             rr->state = 't';
@@ -332,7 +337,7 @@ PCB *get_next_sjf(){
 
 void start_sjf(){
     PCB *minBurst = NULL;
-    while(CPU_ACTIVE){
+    while(1){
         minBurst = get_next_sjf();
         if(minBurst==NULL){
             // printf("Queue empty, waiting for new processes.\n");
