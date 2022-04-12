@@ -28,7 +28,8 @@ void quit_program(){
     KEY_D = 0;
     pthread_cancel(tid0);
     pthread_cancel(tid1);
-    // Poner funcion de impresion de estadisticas aqui.
+    print_stats();
+    print_tat_wt_table();
     printf("\nQuitting program...\n");
 }
 

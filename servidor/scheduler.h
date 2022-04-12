@@ -14,6 +14,10 @@ static int PORT = 8089;
 // Adds a PCB to the JobScheduler queue.
 void add_pcb(PCB *pcb_input);
 
+void print_stats();
+
+void print_tat_wt_table();
+
 void print_all_pcbs();
 
 void print_ready_pcbs();
