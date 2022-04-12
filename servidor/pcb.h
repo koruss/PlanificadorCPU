@@ -9,6 +9,7 @@
 // Process Control Block struct
 typedef struct _PCB {
     LIST_ENTRY(_PCB) pointers;
+    time_t begin,end;
     int pid, prio, burst, rr;
     char state; //new, ready, running, waiting, terminated
 }PCB;
