@@ -3,12 +3,8 @@
 static int EXEC_PROC_AMOUNT = 0;
 static int CPU_WAITING_SECS = 0;
 static int PID = 0;
-static int CPU_ACTIVE = 1;
 static PCB *last_inserted = NULL;
 LIST_HEAD(pcb_list, _PCB) pcbs;
-pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-int lock = 0;
 
 int sock = -1;
 
@@ -103,6 +99,7 @@ void * process(void * ptr)
 }
 
 void *start_job_scheduler(){
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     printf("Starting Job Scheduler\n");
     LIST_INIT(&pcbs);
 
@@ -168,8 +165,7 @@ PCB *get_next_fifo(){
 
 void start_fifo(){
     PCB *head = NULL;
-    while(CPU_ACTIVE){
-        //sem_wait(&SEM);
+    while(1){
         head = get_next_fifo();
         if(head==NULL){
             //printf("Queue empty, waiting for new processes.\n");
@@ -182,6 +178,7 @@ void start_fifo(){
             sleep(head->burst);
             // Set the state of the PCB as terminated.
             head->state = 't';
+            printf("\nJOB SCHEDULER - Process with PID %d has terminated execution.\n", head->pid);
         }
     }
 }
@@ -205,7 +202,7 @@ PCB *get_next_hpf(){
 
 void start_hpf(){
     PCB *head = NULL;
-    while(CPU_ACTIVE){
+    while(1){
         head = get_next_hpf();
         if(head==NULL){
             //printf("Queue empty, waiting for new processes.\n");
@@ -218,11 +215,13 @@ void start_hpf(){
             sleep(head->burst);
             // Set the state of the PCB as terminated.
             head->state = 't';
+            printf("\nJOB SCHEDULER - Process with PID %d has terminated execution.\n", head->pid);
         }
     }
 }
 
 void* start_cpu_scheduler(void* void_arg){
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     char* arg = void_arg;
     // Sleep the thread to let the process list to be populated.
     usleep(200);
