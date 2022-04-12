@@ -25,13 +25,13 @@ void add_pcb(PCB *pcb_input){
 }
 
 void print_context_switch(PCB *pcb){
-    printf("\nProcess %d, with %d burst, and %d priority is now executing.", pcb->pid, pcb->burst, pcb->prio);
+    printf("CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing.\n", pcb->pid, pcb->burst, pcb->prio);
     fflush(stdout);
 }
 
 void print_all_pcbs(){
     PCB *pcb;
-    printf("Printing all PCBs\n");
+    printf("****Printing all PCBs****\n");
     LIST_FOREACH(pcb, &pcbs, pointers){
         print_pcb(pcb);
 
@@ -40,7 +40,7 @@ void print_all_pcbs(){
 }
 
 void print_ready_pcbs(){
-    printf("Printing ready PCBs\n");
+    printf("****Printing ready PCBs****\n");
     PCB *pcb;
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state == 'r')
@@ -51,7 +51,7 @@ void print_ready_pcbs(){
 }
 
 void print_terminated_pcbs(){
-    printf("Printing terminated PCBs\n");
+    printf("****Printing terminated PCBs****\n");
     PCB *pcb;
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state == 't')
@@ -88,7 +88,7 @@ void * process(void * ptr)
         int burst = atoi(strtok(buffer, s));
         char *token =strtok(NULL,s);
         int priority = atoi(token);
-        //printf("\nBURST: %d  PRIORITY: %d",burst,priority);
+        printf("JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);
         send(conn->sock, hello, strlen(hello), 0);
         pcbcito =create_pcb(++PID, priority, burst);
         add_pcb(pcbcito);
@@ -109,13 +109,6 @@ void *start_job_scheduler(){
     printf("Starting Job Scheduler\n");
     LIST_INIT(&pcbs);
 
-    //    PCB *pcb1 = create_pcb(++PID, 8, 8);
-    //    PCB *pcb2 = create_pcb(++PID, 2, 2);
-    //    PCB *pcb3 = create_pcb(++PID, 3, 3);
-
-    //    add_pcb(pcb1);
-    //    add_pcb(pcb2);
-    //    add_pcb(pcb3);
     struct sockaddr_in address;
     connection_t * connection;
     pthread_t thread;
