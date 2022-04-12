@@ -1,8 +1,18 @@
+
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <linux/in.h>
+#include <unistd.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "scheduler.h"
 
+
 static int KEY_D = 1;
+
 
 void print_help(){
     printf("\n****Help menu****\n");
@@ -31,15 +41,24 @@ void *start_keyboard_daemon(){
 
         if(user_input == 'q')
             quit_program();
+
+        if(user_input == 't')
+            print_terminated_pcbs();
+        if(user_input == 'a')
+            print_all_pcbs();
     }
+    pthread_exit(0);
     return 0;
 }
 
 
-int main(int argc, char** argv)
+
+int main(int argc, char ** argv)
 {
     pthread_t tid0, tid1, tid2;
     const char* arg1 = argv[1];
+
+    sem_init(&SEM, 0, 0);
 
     //Create the thread for the Job Scheduler.
     pthread_create(&tid0, NULL, start_job_scheduler, NULL);
@@ -50,7 +69,9 @@ int main(int argc, char** argv)
     // Create the thread for the Keyboard daemon.
     pthread_create(&tid2, NULL, start_keyboard_daemon(), NULL);
 
-
-    pthread_exit(NULL);
+    sem_destroy(&SEM);
     return 0;
 }
+
+
+
