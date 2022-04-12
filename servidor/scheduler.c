@@ -1,12 +1,14 @@
-
 #include "scheduler.h"
-
 
 static int EXEC_PROC_AMOUNT = 0;
 static int CPU_WAITING_SECS = 0;
 static int PID = 0;
 static int CPU_ACTIVE = 1;
 static PCB *last_inserted = NULL;
+LIST_HEAD(pcb_list, _PCB) pcbs;
+pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int lock = 0;
 
 int sock = -1;
 
@@ -29,29 +31,33 @@ void print_context_switch(PCB *pcb){
 
 void print_all_pcbs(){
     PCB *pcb;
+    printf("Printing all PCBs\n");
     LIST_FOREACH(pcb, &pcbs, pointers){
         print_pcb(pcb);
 
     }
-    //fflush(stdout);
+    fflush(stdout);
 }
 
 void print_ready_pcbs(){
+    printf("Printing ready PCBs\n");
     PCB *pcb;
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state == 'r')
             print_pcb(pcb);
 
     }
-    //fflush(stdout);
+    fflush(stdout);
 }
 
 void print_terminated_pcbs(){
+    printf("Printing terminated PCBs\n");
     PCB *pcb;
-    LIST_FOREACH(pcb, &completed, pointers){
-        print_pcb(pcb);
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state == 't')
+            print_pcb(pcb);
     }
-    //fflush(stdout);
+    fflush(stdout);
 }
 
 void * process(void * ptr)
@@ -102,15 +108,14 @@ void * process(void * ptr)
 void *start_job_scheduler(){
     printf("Starting Job Scheduler\n");
     LIST_INIT(&pcbs);
-    LIST_INIT(&completed);
 
-//    PCB *pcb1 = create_pcb(++PID, 8, 8);
-//    PCB *pcb2 = create_pcb(++PID, 2, 2);
-//    PCB *pcb3 = create_pcb(++PID, 3, 3);
+    //    PCB *pcb1 = create_pcb(++PID, 8, 8);
+    //    PCB *pcb2 = create_pcb(++PID, 2, 2);
+    //    PCB *pcb3 = create_pcb(++PID, 3, 3);
 
-//    add_pcb(pcb1);
-//    add_pcb(pcb2);
-//    add_pcb(pcb3);
+    //    add_pcb(pcb1);
+    //    add_pcb(pcb2);
+    //    add_pcb(pcb3);
     struct sockaddr_in address;
     connection_t * connection;
     pthread_t thread;
@@ -162,22 +167,30 @@ void *start_job_scheduler(){
     return NULL;
 }
 
+PCB *get_next_fifo(){
+    PCB *pcb=NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state == 'r')
+            return pcb;
+    }
+    return pcb;
+}
+
 void start_fifo(){
     PCB *head = NULL;
     while(CPU_ACTIVE){
-        head = LIST_FIRST(&pcbs);
+        //sem_wait(&SEM);
+        head = get_next_fifo();
         if(head==NULL){
-            printf("Queue empty, waiting for new processes.\n");
+            //printf("Queue empty, waiting for new processes.\n");
             sleep(1);
         }
         else{
             // Set the state of the PCB as running.
             head->state = 'R';
             print_context_switch(head);
-            //fflush(stdout);
             sleep(head->burst);
-            LIST_REMOVE(head, pointers);
-            //LIST_INSERT_HEAD(&completed, head, pointers);
+            // Set the state of the PCB as terminated.
             head->state = 't';
         }
     }
@@ -194,15 +207,15 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "sjf") == 0)
     {
-            printf("sjf inserted\n");
+        printf("sjf inserted\n");
     }
     else if (strcmp(arg, "hpf") == 0)
     {
-            printf("hpf inserted\n");
+        printf("hpf inserted\n");
     }
     else if (strcmp(arg, "roundrobin") == 0)
     {
-            printf("round robin inserted\n");
+        printf("round robin inserted\n");
     }
     else
     {

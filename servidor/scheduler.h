@@ -4,16 +4,15 @@
 #include <pthread.h>
 #include "pcb.h"
 #include "connection.h"
-
+#include <semaphore.h>
 
 static int EXEC_PROC_AMOUNT;
 static int CPU_WAITING_SECS;
 static int PID;
 static int CPU_ACTIVE;
 static PCB *last_inserted;
-static LIST_HEAD(pcb_list, _PCB) pcbs;
-static LIST_HEAD(done_pcbs, _PCB) completed;
 static int PORT = 8089;
+static sem_t SEM;
 
 
 // Adds a PCB to the JobScheduler queue.
