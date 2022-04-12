@@ -107,6 +107,7 @@ int main(int argc, char ** argv)
     //int port;
     //connection_t * connection;
     //pthread_t thread;
+    sem_init(&SEM, 0, 0);
 
     //Create the thread for the Job Scheduler.
     pthread_create(&tid0, NULL, start_job_scheduler, NULL);
@@ -161,7 +162,7 @@ int main(int argc, char ** argv)
 //        }
 //    }
 
-    pthread_exit(NULL);
+    sem_destroy(&SEM);
     return 0;
 }
 

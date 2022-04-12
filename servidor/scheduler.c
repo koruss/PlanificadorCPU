@@ -1,12 +1,14 @@
-
 #include "scheduler.h"
-
 
 static int EXEC_PROC_AMOUNT = 0;
 static int CPU_WAITING_SECS = 0;
 static int PID = 0;
 static int CPU_ACTIVE = 1;
 static PCB *last_inserted = NULL;
+LIST_HEAD(pcb_list, _PCB) pcbs;
+pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int lock = 0;
 
 int sock = -1;
 
@@ -23,35 +25,38 @@ void add_pcb(PCB *pcb_input){
 }
 
 void print_context_switch(PCB *pcb){
-    printf("\nProcess %d, with %d burst, and %d priority is now executing.", pcb->pid, pcb->burst, pcb->prio);
+    printf("CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing.\n", pcb->pid, pcb->burst, pcb->prio);
     fflush(stdout);
 }
 
 void print_all_pcbs(){
     PCB *pcb;
+    printf("****Printing all PCBs****\n");
     LIST_FOREACH(pcb, &pcbs, pointers){
         print_pcb(pcb);
 
     }
-    //fflush(stdout);
+    fflush(stdout);
 }
 
 void print_ready_pcbs(){
+    printf("****Printing ready PCBs****\n");
     PCB *pcb;
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state == 'r')
             print_pcb(pcb);
-
     }
-    //fflush(stdout);
+    fflush(stdout);
 }
 
 void print_terminated_pcbs(){
+    printf("****Printing terminated PCBs****\n");
     PCB *pcb;
-    LIST_FOREACH(pcb, &completed, pointers){
-        print_pcb(pcb);
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state == 't')
+            print_pcb(pcb);
     }
-    //fflush(stdout);
+    fflush(stdout);
 }
 
 void * process(void * ptr)
@@ -82,7 +87,7 @@ void * process(void * ptr)
         int burst = atoi(strtok(buffer, s));
         char *token =strtok(NULL,s);
         int priority = atoi(token);
-        //printf("\nBURST: %d  PRIORITY: %d",burst,priority);
+        printf("JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);
         send(conn->sock, hello, strlen(hello), 0);
         pcbcito =create_pcb(++PID, priority, burst);
         add_pcb(pcbcito);
@@ -97,20 +102,10 @@ void * process(void * ptr)
     pthread_exit(0);
 }
 
-
-
 void *start_job_scheduler(){
     printf("Starting Job Scheduler\n");
     LIST_INIT(&pcbs);
-    LIST_INIT(&completed);
 
-//    PCB *pcb1 = create_pcb(++PID, 8, 8);
-//    PCB *pcb2 = create_pcb(++PID, 2, 2);
-//    PCB *pcb3 = create_pcb(++PID, 3, 3);
-
-//    add_pcb(pcb1);
-//    add_pcb(pcb2);
-//    add_pcb(pcb3);
     struct sockaddr_in address;
     connection_t * connection;
     pthread_t thread;
@@ -162,22 +157,66 @@ void *start_job_scheduler(){
     return NULL;
 }
 
+PCB *get_next_fifo(){
+    PCB *pcb=NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state == 'r')
+            return pcb;
+    }
+    return NULL;
+}
+
 void start_fifo(){
     PCB *head = NULL;
     while(CPU_ACTIVE){
-        head = LIST_FIRST(&pcbs);
+        //sem_wait(&SEM);
+        head = get_next_fifo();
         if(head==NULL){
-            printf("Queue empty, waiting for new processes.\n");
+            //printf("Queue empty, waiting for new processes.\n");
             sleep(1);
         }
         else{
             // Set the state of the PCB as running.
             head->state = 'R';
             print_context_switch(head);
-            //fflush(stdout);
             sleep(head->burst);
-            LIST_REMOVE(head, pointers);
-            //LIST_INSERT_HEAD(&completed, head, pointers);
+            // Set the state of the PCB as terminated.
+            head->state = 't';
+        }
+    }
+}
+
+PCB *get_next_hpf(){
+    PCB *pcb = NULL, *hp_pcb= NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state=='r'){
+            if (hp_pcb == NULL) // First execution
+                hp_pcb = pcb;
+            else if(pcb->prio > hp_pcb->prio) // New elemnt has higher priority
+                hp_pcb = pcb;
+            else if (pcb->prio == hp_pcb->prio) // Tie-breaker in case of equal prio.
+                if(hp_pcb->pid > pcb->pid)
+                    hp_pcb = pcb;
+        }
+    }
+    return hp_pcb;
+
+}
+
+void start_hpf(){
+    PCB *head = NULL;
+    while(CPU_ACTIVE){
+        head = get_next_hpf();
+        if(head==NULL){
+            //printf("Queue empty, waiting for new processes.\n");
+            sleep(1);
+        }
+        else{
+            // Set the state of the PCB as running.
+            head->state = 'R';
+            print_context_switch(head);
+            sleep(head->burst);
+            // Set the state of the PCB as terminated.
             head->state = 't';
         }
     }
@@ -239,7 +278,8 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "hpf") == 0)
     {
-            printf("hpf inserted\n");
+        printf("Starting CPU scheduler with HPF\n");
+        start_hpf();
     }
     else if (strcmp(arg, "roundrobin") == 0)
     {
