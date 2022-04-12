@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "scheduler.h"
 
 static int EXEC_PROC_AMOUNT = 0;
@@ -16,6 +20,7 @@ void add_pcb(PCB *pcb_input){
         LIST_INSERT_AFTER(last_inserted, pcb_input, pointers);
     // Set the process state to ready.
     pcb_input->state='r';
+    pcb_input->begin=time(NULL);
     // Set the last inserted pointer.
     last_inserted = pcb_input;
 }
@@ -30,7 +35,6 @@ void print_all_pcbs(){
     printf("****Printing all PCBs****\n");
     LIST_FOREACH(pcb, &pcbs, pointers){
         print_pcb(pcb);
-
     }
     fflush(stdout);
 }
@@ -49,8 +53,13 @@ void print_terminated_pcbs(){
     printf("****Printing terminated PCBs****\n");
     PCB *pcb;
     LIST_FOREACH(pcb, &pcbs, pointers){
-        if(pcb->state == 't')
+        if(pcb->state == 't'){
             print_pcb(pcb);
+            double diff = difftime(pcb->end,pcb->begin);
+            printf("\tTurn around time (TAT): %f\n",diff);
+            double wt = diff - pcb->burst;
+            printf("\tWaiting Time: %f\n",wt);
+        }
     }
     fflush(stdout);
 }
@@ -83,9 +92,11 @@ void * process(void * ptr)
         int burst = atoi(strtok(buffer, s));
         char *token =strtok(NULL,s);
         int priority = atoi(token);
-        printf("JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);
-        send(conn->sock, hello, strlen(hello), 0);
+        printf("JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);        
         pcbcito =create_pcb(++PID, priority, burst);
+        char response[20];
+        sprintf(response, "%d", pcbcito->pid);
+        send(conn->sock, response, strlen(response), 0);
         add_pcb(pcbcito);
         fflush(stdout);
         free(buffer);
@@ -178,6 +189,7 @@ void start_fifo(){
             sleep(head->burst);
             // Set the state of the PCB as terminated.
             head->state = 't';
+            head->end = time(NULL);
             printf("\nJOB SCHEDULER - Process with PID %d has terminated execution.\n", head->pid);
         }
     }

@@ -59,10 +59,9 @@ void * processClient(void * param)
 
     read(sock, buffer, 1024);
     printf("%s\n", buffer);
-
-
     /* close socket */
-//    close(sock);
+    close(sock);
+    pthread_exit(0);
 }
 
 void* sendToServer(void *arg){
