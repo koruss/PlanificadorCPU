@@ -56,6 +56,7 @@ void print_terminated_pcbs(){
 
 void * process(void * ptr)
 {
+    char* hello = "Enviado desde el server";
     PCB *pcbcito = NULL;
     char * buffer;
     int len;
@@ -77,11 +78,12 @@ void * process(void * ptr)
         read(conn->sock, buffer, len);
 
 
-       const char s[2] = ",";
-       int burst = atoi(strtok(buffer, s));
+        const char s[2] = ",";
+        int burst = atoi(strtok(buffer, s));
         char *token =strtok(NULL,s);
         int priority = atoi(token);
         //printf("\nBURST: %d  PRIORITY: %d",burst,priority);
+        send(conn->sock, hello, strlen(hello), 0);
         pcbcito =create_pcb(++PID, priority, burst);
         add_pcb(pcbcito);
         fflush(stdout);
@@ -130,7 +132,7 @@ void *start_job_scheduler(){
     }
 
     /* listen on port */
-    if (listen(sock, 5) < 0)
+    if (listen(sock, 100) < 0)
     {
         fprintf(stderr, "%s: error: cannot listen on port\n", "Server");
         return NULL;
@@ -179,7 +181,6 @@ void start_fifo(){
             head->state = 't';
         }
     }
-
 }
 
 void* start_cpu_scheduler(void* void_arg){

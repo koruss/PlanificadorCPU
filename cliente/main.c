@@ -33,6 +33,7 @@ void * processClient(void * param)
     struct sockaddr_in address;
     struct hostent * host = gethostbyname(HOST_NAME);
     int len;
+    char buffer[1024] = { 0 };
 
     /* create socket */
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -55,6 +56,10 @@ void * processClient(void * param)
     len = strlen(param);
     write(sock, &len, sizeof(int));
     write(sock, param, len);
+
+    read(sock, buffer, 1024);
+    printf("%s\n", buffer);
+
 
     /* close socket */
 //    close(sock);
@@ -165,7 +170,7 @@ int main(int argc, char **argv)
     printf("SELECT THE MODE (TYPE THE NUMBER): \n\t1.MANUAL\n\t2.AUTOMATIC\n");
     scanf("%d",&MODE);
     if(MODE == 1){
-        char fileName[]= "/home/anner/U/SO/PlanificadorCPU/cliente/manual.txt";
+        char fileName[]= "PlanificadorCPU/cliente/manual.txt";
         int count = countLines(fileName);
         char **list =  readFile(fileName, count);
         manual(list, count);
