@@ -223,25 +223,25 @@ void start_hpf(){
 }
 
 
-void *get_next_rr(int q){
+PCB *get_next_rr(int q){
     PCB *pcb = NULL, *rr_pcb= NULL;
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state=='r'){
-            if (rr_pcb == NULL) // First execution
+            if(pcb->rr <= q){ // New elemnt is lower than quantum
                 rr_pcb = pcb;
-            else if(pcb->rr < q) // New elemnt is lower than quantum
-                rr_pcb = pcb;
-            else if(pcb->rr > q) // New elemnt is higher than quantum
+                return rr_pcb;
+            }else if(pcb->rr > q){ // New elemnt is higher than quantum
                 pcb->rr = pcb->rr-q;
+            }
         }
     }
-    return rr_pcb;
+    
 }
 
 void start_rr(int q){
+    int cont=0;
     PCB *rr = NULL;
     while(CPU_ACTIVE){
-        //sem_wait(&SEM);
         rr = get_next_rr(q);
         if(rr==NULL){
             printf("Queue empty, waiting for new processes.\n");
@@ -251,7 +251,7 @@ void start_rr(int q){
             // Set the state of the PCB as running.
             rr->state = 'R';
             print_context_switch(rr);
-            sleep(rr->burst);
+            sleep(rr->rr);
             // Set the state of the PCB as terminated.
             rr->state = 't';
         }
@@ -315,8 +315,8 @@ void* start_cpu_scheduler(void* void_arg){
     else if (strcmp(arg, "roundrobin") == 0)
     {
         int q;
-        printf( "Enter a time_quantum:");
-        q = getchar( );
+        printf( "Enter a time quantum:");
+        scanf("%d", &q);
         printf("Starting CPU scheduler with ROUND ROBIN\n");
         start_rr(q);
     }
