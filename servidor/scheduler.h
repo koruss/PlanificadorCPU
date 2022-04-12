@@ -26,6 +26,10 @@ void print_terminated_pcbs();
 
 void *start_job_scheduler();
 
+void start_fifo();
+
+void start_hpf();
+
 void* start_cpu_scheduler(void* void_arg);
 
 #endif // SCHEDULER_H

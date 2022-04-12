@@ -45,7 +45,6 @@ void print_ready_pcbs(){
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state == 'r')
             print_pcb(pcb);
-
     }
     fflush(stdout);
 }
@@ -102,8 +101,6 @@ void * process(void * ptr)
     free(conn);
     pthread_exit(0);
 }
-
-
 
 void *start_job_scheduler(){
     printf("Starting Job Scheduler\n");
@@ -166,7 +163,7 @@ PCB *get_next_fifo(){
         if(pcb->state == 'r')
             return pcb;
     }
-    return pcb;
+    return NULL;
 }
 
 void start_fifo(){
@@ -174,6 +171,42 @@ void start_fifo(){
     while(CPU_ACTIVE){
         //sem_wait(&SEM);
         head = get_next_fifo();
+        if(head==NULL){
+            //printf("Queue empty, waiting for new processes.\n");
+            sleep(1);
+        }
+        else{
+            // Set the state of the PCB as running.
+            head->state = 'R';
+            print_context_switch(head);
+            sleep(head->burst);
+            // Set the state of the PCB as terminated.
+            head->state = 't';
+        }
+    }
+}
+
+PCB *get_next_hpf(){
+    PCB *pcb = NULL, *hp_pcb= NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state=='r'){
+            if (hp_pcb == NULL) // First execution
+                hp_pcb = pcb;
+            else if(pcb->prio > hp_pcb->prio) // New elemnt has higher priority
+                hp_pcb = pcb;
+            else if (pcb->prio == hp_pcb->prio) // Tie-breaker in case of equal prio.
+                if(hp_pcb->pid > pcb->pid)
+                    hp_pcb = pcb;
+        }
+    }
+    return hp_pcb;
+
+}
+
+void start_hpf(){
+    PCB *head = NULL;
+    while(CPU_ACTIVE){
+        head = get_next_hpf();
         if(head==NULL){
             //printf("Queue empty, waiting for new processes.\n");
             sleep(1);
@@ -204,7 +237,8 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "hpf") == 0)
     {
-        printf("hpf inserted\n");
+        printf("Starting CPU scheduler with HPF\n");
+        start_hpf();
     }
     else if (strcmp(arg, "roundrobin") == 0)
     {
