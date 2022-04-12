@@ -183,6 +183,46 @@ void start_fifo(){
     }
 }
 
+void start_rr(){
+
+}
+
+void start_sjf(){
+    int location = 0;
+    PCB *minBurst = NULL;
+    PCB *head = NULL;
+    while(CPU_ACTIVE){
+        // for (int c = 1; c < size; c++)
+        // if (array[c] < array[location])
+        //     location = c;
+
+        head = LIST_FIRST(&pcbs);
+        
+        
+        PCB *pcb;
+        LIST_FOREACH(pcb, &pcbs, pointers){
+            print_pcb(pcb);
+
+        }
+
+        minBurst = LIST_FIRST(&pcbs);
+        if(minBurst==NULL){
+            printf("Queue empty, waiting for new processes.\n");
+            sleep(1);
+        }
+        else{
+            // Set the state of the PCB as running.
+            minBurst->state = 'R';
+            print_context_switch(minBurst);
+            //fflush(stdout);
+            sleep(minBurst->burst);
+            LIST_REMOVE(minBurst, pointers);
+            //LIST_INSERT_HEAD(&completed, head, pointers);
+            minBurst->state = 't';
+        }
+    }
+}
+
 void* start_cpu_scheduler(void* void_arg){
     char* arg = void_arg;
     // Sleep the thread to let the process list to be populated.
@@ -194,7 +234,8 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "sjf") == 0)
     {
-            printf("sjf inserted\n");
+        printf("Starting CPU scheduler with SJF\n");
+        start_sjf();
     }
     else if (strcmp(arg, "hpf") == 0)
     {
@@ -202,7 +243,8 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "roundrobin") == 0)
     {
-            printf("round robin inserted\n");
+        printf("Starting CPU scheduler with ROUND ROBIN\n");
+        start_rr();
     }
     else
     {
