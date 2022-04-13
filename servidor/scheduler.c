@@ -283,38 +283,55 @@ void start_hpf(){
     }
 }
 
-
-PCB *get_next_rr(int q){
-    PCB *pcb = NULL, *rr_pcb= NULL;
+void wait_to_ready(){
+    PCB *pcb=NULL;
     LIST_FOREACH(pcb, &pcbs, pointers){
-        if(pcb->state=='r'){
-            if(pcb->rr <= q){ // New elemnt is lower than quantum
-                rr_pcb = pcb;
-                return rr_pcb;
-            }else if(pcb->rr > q){ // New elemnt is higher than quantum
-                pcb->rr = pcb->rr-q;
-            }
+        if(pcb->state == 'w'){
+            pcb->state = 'r';
         }
     }
-    
 }
 
+
+PCB *get_next_rr(int q){
+    PCB *pcb=NULL, *hp_pcb= NULL;
+
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if (pcb->pointers.le_next != NULL){
+            if(pcb->state == 'r'){
+                if(pcb->rr <= q){ // New elemnt has higher priority
+                    hp_pcb = pcb;
+                    return hp_pcb;
+                }else if (pcb->rr > q){
+                    pcb->rr = pcb->rr - q;
+                    pcb->state = 'w';
+                }
+            }
+        }else{
+            wait_to_ready();
+        }
+    }
+}
+
+
+
 void start_rr(int q){
-    int cont=0;
-    PCB *rr = NULL;
+    PCB *rr_out = NULL;
     while(1){
-        rr = get_next_rr(q);
-        if(rr==NULL){
-            printf("Queue empty, waiting for new processes.\n");
+        rr_out = get_next_rr(q);
+        if(rr_out==NULL){
+            // printf("Queue empty, waiting for new processes.\n");
             sleep(1);
         }
         else{
             // Set the state of the PCB as running.
-            rr->state = 'R';
-            print_context_switch_rr(rr);
-            sleep(rr->rr);
+            rr_out->state = 'R';
+            print_context_switch_rr(rr_out);
+            sleep(rr_out->burst);
             // Set the state of the PCB as terminated.
-            rr->state = 't';
+            rr_out->state = 't';
+            rr_out->end = time(NULL);
+            printf("\nCPU SCHEDULER - Process with PID %d has terminated execution.\n", rr_out->pid);
         }
     }
 }
@@ -350,6 +367,8 @@ void start_sjf(){
             sleep(minBurst->burst);
             // Set the state of the PCB as terminated.
             minBurst->state = 't';
+            minBurst->end = time(NULL);
+            printf("\nCPU SCHEDULER - Process with PID %d has terminated execution.\n", minBurst->pid);
         }
     }
 }
