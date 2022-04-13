@@ -163,33 +163,52 @@ void autoMode(int min, int max,int ratio){
     }
 }
 
+void print_help(){
+    printf("\nArgumentos de entrada:\n");
+    printf("1 - Modo de operación \"auto\" 'o \"manual\".\n");
+    printf("Si ingresa \"manual\", debe ingresar el siguiente argumento:\n");
+    printf("\t2 - nombre del archivo utilizando una ruta relativa o absoluta.\n\n");
+    printf("Si ingresa \"auto\" , debe ingresar los siguientes argumentos.");
+    printf("\t2 - Valor entero mínimo para el BURST del proceso.\n");
+    printf("\t3 - Valor entero máximo para el BURST del proceso.\n");
+    printf("\t4 - Valor entero para la tasa de creación de procesos.\n");
+}
 
 int main(int argc, char **argv)
 {
-    printf("SELECT THE MODE (TYPE THE NUMBER): \n\t1.MANUAL\n\t2.AUTOMATIC\n");
-    scanf("%d",&MODE);
-    if(MODE == 1){
-        char fileName[]= "./manual.txt";
-        int count = countLines(fileName);
-        char **list =  readFile(fileName, count);
-        manual(list, count);
+    if(argc == 3){
+        char *arg1 = argv[1];
+        char *arg2 = argv[2];
+
+        if (strcmp(arg1, "manual") == 0)
+        {
+            printf("Starting client in manual execution mode.\n");
+            int count = countLines(arg2);
+            char **list =  readFile(arg2, count);
+            manual(list, count);
+        }else{
+            print_help();
+            return 1;
+        }
+    }else if(argc == 5){
+        char *arg1 = argv[1]; //auto
+        char *arg2 = argv[2]; //min burst
+        char *arg3 = argv[3]; //max burst
+        char *arg4 = argv[4]; //tasa creacion
+        if (strcmp(arg1, "auto") == 0)
+        {
+            printf("Starting client in automatic execution mode.\n");
+            autoMode(atoi(arg2), atoi(arg3), atoi(arg4));
+        }else{
+            print_help();
+            return 1;
+        }
+    }else{
+        printf("Cantidad incorrecta de argumentos ingresados.");
+        print_help();
+        return 1;
     }
-    if(MODE == 2){
-        int min =0;
-        int max=0;
-        int ratio=0;
-        printf("\nIngrese el valor minimo del BURST \n");
-        scanf("%d",&min);
-        printf("\nIngrese el valor maximo del BURST \n");
-        scanf("%d",&max);
-        printf("\nIngrese la tasa de creacion de procesos \n");
-        scanf("%d",&ratio);
-        autoMode(min, max,ratio);
-    }
-    else{
-        //retry
-        printf("SELECT A VALID MODE");
-    }
+
     pthread_exit(0);
 
     return 0;
