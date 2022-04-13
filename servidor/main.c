@@ -13,17 +13,24 @@
 
 static int KEY_D = 1;
 
+    pthread_t tid0, tid1, tid2;
 
 void print_help(){
     printf("\n****Help menu****\n");
     printf("\tPress r to show ready PCBs.\n");
+    printf("\tPress t to show terminated PCBs.\n");
+    printf("\tPress a to show all PCBs.\n");
     printf("\tPress q to quit the program.\n");
     printf("\tPress h to see this help menu.\n");
 }
 
 void quit_program(){
-    printf("Quitting keyboard daemon...");
     KEY_D = 0;
+    pthread_cancel(tid0);
+    pthread_cancel(tid1);
+    print_stats();
+    print_tat_wt_table();
+    printf("\nQuitting program...\n");
 }
 
 void *start_keyboard_daemon(){
@@ -51,14 +58,9 @@ void *start_keyboard_daemon(){
     return 0;
 }
 
-
-
 int main(int argc, char ** argv)
 {
-    pthread_t tid0, tid1, tid2;
     const char* arg1 = argv[1];
-
-    sem_init(&SEM, 0, 0);
 
     //Create the thread for the Job Scheduler.
     pthread_create(&tid0, NULL, start_job_scheduler, NULL);
@@ -69,9 +71,6 @@ int main(int argc, char ** argv)
     // Create the thread for the Keyboard daemon.
     pthread_create(&tid2, NULL, start_keyboard_daemon(), NULL);
 
-    sem_destroy(&SEM);
+
     return 0;
 }
-
-
-

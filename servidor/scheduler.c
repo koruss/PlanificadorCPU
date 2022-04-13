@@ -7,12 +7,9 @@
 static int EXEC_PROC_AMOUNT = 0;
 static int CPU_WAITING_SECS = 0;
 static int PID = 0;
-static int CPU_ACTIVE = 1;
 static PCB *last_inserted = NULL;
 LIST_HEAD(pcb_list, _PCB) pcbs;
-pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-int lock = 0;
+time_t CPU_START;
 
 int sock = -1;
 
@@ -29,14 +26,63 @@ void add_pcb(PCB *pcb_input){
     last_inserted = pcb_input;
 }
 
+void print_stats(){
+    int process_count = 0;
+    float total_tat = 0, total_wt = 0, current_tat = 0, total_time = 0;
+    PCB *pcb;
+    time_t current_time = time(NULL);
+    printf("\n****General Statistics****\n");
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state == 't'){
+            process_count++;
+            current_tat = difftime(pcb->end,pcb->begin);
+            total_tat += current_tat;
+            total_wt = current_tat - pcb->burst;
+        }
+    }
+    total_tat = (total_tat / process_count);
+    total_time = difftime(current_time, CPU_START);
+    total_time = total_time - total_tat;
+    total_wt = (total_wt / process_count);
+
+    printf("Amount of processes executed: %d\n", process_count);
+    printf("Lazy processor time: %f\n", total_time); //Dato feik jijiijijiji.
+    printf("Average turn around time: %fs\n", total_tat);
+    printf("Average waiting time: %fs\n", total_wt);
+
+    fflush(stdout);
+}
+
+void print_tat_wt_table(){
+    PCB *pcb;
+    double diff = 0, wt = 0;
+    printf("\n****TAT & WT****\n");
+    printf("| PID | TAT | WT\n");
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state == 't'){
+            diff = difftime(pcb->end,pcb->begin);
+            wt = diff - pcb->burst;
+            printf("| %d ", pcb->pid);
+            printf("| %f ",diff);
+            printf("| %f |\n",wt);
+        }
+    }
+
+}
+
 void print_context_switch(PCB *pcb){
-    printf("CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing.\n", pcb->pid, pcb->burst, pcb->prio);
+    printf("\n CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing.\n", pcb->pid, pcb->burst, pcb->prio);
+    fflush(stdout);
+}
+
+void print_context_switch_rr(PCB *pcb){
+    printf("\n CPU SCHEDULER - Process %d, with %d burst, and %d priority is now executing. rr=%d \n", pcb->pid, pcb->burst, pcb->prio, pcb->rr);
     fflush(stdout);
 }
 
 void print_all_pcbs(){
     PCB *pcb;
-    printf("****Printing all PCBs****\n");
+    printf("\n****Printing all PCBs****\n");
     LIST_FOREACH(pcb, &pcbs, pointers){
         print_pcb(pcb);
     }
@@ -44,7 +90,7 @@ void print_all_pcbs(){
 }
 
 void print_ready_pcbs(){
-    printf("****Printing ready PCBs****\n");
+    printf("\n****Printing ready PCBs****\n");
     PCB *pcb;
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state == 'r')
@@ -54,15 +100,15 @@ void print_ready_pcbs(){
 }
 
 void print_terminated_pcbs(){
-    printf("****Printing terminated PCBs****\n");
+    printf("\n****Printing terminated PCBs****\n");
     PCB *pcb;
     LIST_FOREACH(pcb, &pcbs, pointers){
         if(pcb->state == 't'){
             print_pcb(pcb);
             double diff = difftime(pcb->end,pcb->begin);
-            printf("\tTurn around time (TAT): %f\n",diff);
+            printf(" \tTurn around time (TAT): %f\n",diff);
             double wt = diff - pcb->burst;
-            printf("\tWaiting Time: %f\n",wt);
+            printf(" \tWaiting Time: %f\n",wt);
         }
     }
     fflush(stdout);
@@ -96,8 +142,8 @@ void * process(void * ptr)
         int burst = atoi(strtok(buffer, s));
         char *token =strtok(NULL,s);
         int priority = atoi(token);
-        printf("JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);        
-        pcbcito =create_pcb(++PID, priority, burst);
+        printf("\n JOB SCHEDULER - Process received: BURST: %d  PRIORITY: %d\n",burst,priority);
+        pcbcito =create_pcb(++PID, priority, burst, burst);
         char response[20];
         sprintf(response, "%d", pcbcito->pid);
         send(conn->sock, response, strlen(response), 0);
@@ -114,6 +160,7 @@ void * process(void * ptr)
 }
 
 void *start_job_scheduler(){
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     printf("Starting Job Scheduler\n");
     LIST_INIT(&pcbs);
 
@@ -179,8 +226,7 @@ PCB *get_next_fifo(){
 
 void start_fifo(){
     PCB *head = NULL;
-    while(CPU_ACTIVE){
-        //sem_wait(&SEM);
+    while(1){
         head = get_next_fifo();
         if(head==NULL){
             //printf("Queue empty, waiting for new processes.\n");
@@ -194,6 +240,7 @@ void start_fifo(){
             // Set the state of the PCB as terminated.
             head->state = 't';
             head->end = time(NULL);
+            printf("\nCPU SCHEDULER - Process with PID %d has terminated execution.\n", head->pid);
         }
     }
 }
@@ -217,7 +264,7 @@ PCB *get_next_hpf(){
 
 void start_hpf(){
     PCB *head = NULL;
-    while(CPU_ACTIVE){
+    while(1){
         head = get_next_hpf();
         if(head==NULL){
             //printf("Queue empty, waiting for new processes.\n");
@@ -230,12 +277,106 @@ void start_hpf(){
             sleep(head->burst);
             // Set the state of the PCB as terminated.
             head->state = 't';
+            head->end = time(NULL);
+            printf("\nCPU SCHEDULER - Process with PID %d has terminated execution.\n", head->pid);
+        }
+    }
+}
+
+void wait_to_ready(){
+    PCB *pcb=NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state == 'w'){
+            pcb->state = 'r';
+        }
+    }
+}
+
+
+PCB *get_next_rr(int q){
+    PCB *pcb=NULL, *hp_pcb= NULL;
+
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if (pcb->pointers.le_next != NULL){
+            if(pcb->state == 'r'){
+                if(pcb->rr <= q){ // New elemnt has higher priority
+                    hp_pcb = pcb;
+                    return hp_pcb;
+                }else if (pcb->rr > q){
+                    pcb->rr = pcb->rr - q;
+                    pcb->state = 'w';
+                }
+            }
+        }else{
+            wait_to_ready();
+        }
+    }
+}
+
+
+
+void start_rr(int q){
+    PCB *rr_out = NULL;
+    while(1){
+        rr_out = get_next_rr(q);
+        if(rr_out==NULL){
+            // printf("Queue empty, waiting for new processes.\n");
+            sleep(1);
+        }
+        else{
+            // Set the state of the PCB as running.
+            rr_out->state = 'R';
+            print_context_switch_rr(rr_out);
+            sleep(rr_out->burst);
+            // Set the state of the PCB as terminated.
+            rr_out->state = 't';
+            rr_out->end = time(NULL);
+            printf("\nCPU SCHEDULER - Process with PID %d has terminated execution.\n", rr_out->pid);
+        }
+    }
+}
+
+PCB *get_next_sjf(){
+    PCB *pcb = NULL, *sjf_pcb= NULL;
+    LIST_FOREACH(pcb, &pcbs, pointers){
+        if(pcb->state=='r'){
+            if (sjf_pcb == NULL) // First execution
+                sjf_pcb = pcb;
+            else if(pcb->burst < sjf_pcb->burst) // New elemnt has higher priority
+                sjf_pcb = pcb;
+            else if (pcb->burst == sjf_pcb->burst) // Tie-breaker in case of equal prio.
+                if(sjf_pcb->pid < pcb->pid)
+                    sjf_pcb = pcb;  
+        }
+    }
+    return sjf_pcb;
+}
+
+void start_sjf(){
+    PCB *minBurst = NULL;
+    while(1){
+        minBurst = get_next_sjf();
+        if(minBurst==NULL){
+            // printf("Queue empty, waiting for new processes.\n");
+            sleep(1);
+        }
+        else{
+            // Set the state of the PCB as running.
+            minBurst->state = 'R';
+            print_context_switch(minBurst);
+            sleep(minBurst->burst);
+            // Set the state of the PCB as terminated.
+            minBurst->state = 't';
+            minBurst->end = time(NULL);
+            printf("\nCPU SCHEDULER - Process with PID %d has terminated execution.\n", minBurst->pid);
         }
     }
 }
 
 void* start_cpu_scheduler(void* void_arg){
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     char* arg = void_arg;
+    CPU_START = time(NULL);
     // Sleep the thread to let the process list to be populated.
     usleep(200);
     if (strcmp(arg, "fifo") == 0)
@@ -245,7 +386,8 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "sjf") == 0)
     {
-        printf("sjf inserted\n");
+        printf("Starting CPU scheduler with SJF\n");
+        start_sjf();
     }
     else if (strcmp(arg, "hpf") == 0)
     {
@@ -254,7 +396,11 @@ void* start_cpu_scheduler(void* void_arg){
     }
     else if (strcmp(arg, "roundrobin") == 0)
     {
-        printf("round robin inserted\n");
+        int q;
+        printf( "Enter a time quantum:");
+        scanf("%d", &q);
+        printf("Starting CPU scheduler with ROUND ROBIN\n");
+        start_rr(q);
     }
     else
     {

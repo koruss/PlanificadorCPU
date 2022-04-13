@@ -1,13 +1,14 @@
 #include "pcb.h"
 
 
-PCB *create_pcb(int _pid, int _prio, int _burst){
+PCB *create_pcb(int _pid, int _prio, int _burst, int _rr){
     PCB *pcb = (PCB *)malloc(sizeof(PCB));
     // Se crea el proceso con estado 'n' de 'new'.
     pcb->state = 'n';
     pcb->burst = _burst;
     pcb->pid = _pid;
     pcb->prio = _prio;
+    pcb->rr = _rr;
     return pcb;
 }
 
